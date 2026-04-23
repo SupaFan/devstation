@@ -2,6 +2,8 @@
 
 一款 macOS 桌面前端项目管理工具，基于 Tauri 2 + Vue 3 + TypeScript + Naive UI 构建。在一个界面内管理所有前端项目的开发、构建、Git 操作。
 
+[English Documentation](./README_EN.md)
+
 ![DevStation Screenshot](./screenshot.png)
 
 ## 功能特性
