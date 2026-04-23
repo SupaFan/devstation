@@ -58,6 +58,9 @@ export const useAppStore = defineStore('app', () => {
     const folders = await selectFolders()
     if (folders.length === 0) return
     let added = 0
+    let maxOrder = config.value.projects.length > 0
+      ? Math.max(...config.value.projects.map(p => p.sort_order))
+      : 0
     for (const folder of folders) {
       if (config.value.projects.some(p => p.path === folder)) continue
       try {
@@ -65,10 +68,9 @@ export const useAppStore = defineStore('app', () => {
         const customName = config.value.custom_names[project.path]
         if (customName) project.name = customName
         if (config.value.favorites.includes(project.id)) project.is_favorite = true
+        maxOrder++
+        project.sort_order = maxOrder
         config.value.projects.push(project)
-        // Assign next sort_order
-        const maxOrder = Math.max(0, ...config.value.projects.map(p => p.sort_order))
-        project.sort_order = maxOrder + 1
         fetchSingleGitInfo(project)
         added++
       } catch (e) {
@@ -100,13 +102,20 @@ export const useAppStore = defineStore('app', () => {
   async function scanAllProjects() {
     loading.value = true
     try {
-      const allProjects: Project[] = []
+      const scannedProjects: Project[] = []
       for (const folder of config.value.workspace_folders) {
         const projects = await invoke<Project[]>('scan_projects', { folder })
-        allProjects.push(...projects)
+        scannedProjects.push(...projects)
       }
+
+      const scannedPaths = new Set(scannedProjects.map(p => p.path))
       const existingMap = new Map(config.value.projects.map(p => [p.path, p]))
-      for (const proj of allProjects) {
+
+      let maxOrder = config.value.projects.length > 0
+        ? Math.max(...config.value.projects.map(p => p.sort_order))
+        : 0
+
+      for (const proj of scannedProjects) {
         const existing = existingMap.get(proj.path)
         if (existing) {
           proj.is_favorite = existing.is_favorite
@@ -114,12 +123,21 @@ export const useAppStore = defineStore('app', () => {
           proj.last_build_time = existing.last_build_time
           proj.git_url = existing.git_url
           proj.branch = existing.branch
+          proj.sort_order = existing.sort_order
+          proj.custom_dev_command = existing.custom_dev_command
+          proj.custom_build_command = existing.custom_build_command
+        } else {
+          maxOrder++
+          proj.sort_order = maxOrder
         }
         const customName = config.value.custom_names[proj.path]
         if (customName) proj.name = customName
         if (config.value.favorites.includes(proj.id)) proj.is_favorite = true
       }
-      config.value.projects = allProjects
+
+      // Keep manually-added projects not in workspace folders
+      const manualProjects = config.value.projects.filter(p => !scannedPaths.has(p.path))
+      config.value.projects = [...manualProjects, ...scannedProjects]
       await saveConfig()
       refreshGitInfo()
     } catch (e) {
@@ -144,6 +162,7 @@ export const useAppStore = defineStore('app', () => {
           fresh.last_build_time = proj.last_build_time
           fresh.custom_dev_command = proj.custom_dev_command
           fresh.custom_build_command = proj.custom_build_command
+          fresh.sort_order = proj.sort_order
           const customName = config.value.custom_names[proj.path]
           if (customName) fresh.name = customName
           updated.push(fresh)
@@ -152,6 +171,9 @@ export const useAppStore = defineStore('app', () => {
         }
       }
       // Also scan workspace folders for new projects
+      let maxOrder = updated.length > 0
+        ? Math.max(...updated.map(p => p.sort_order))
+        : 0
       for (const folder of config.value.workspace_folders) {
         try {
           const scanned = await invoke<Project[]>('scan_projects', { folder })
@@ -160,6 +182,8 @@ export const useAppStore = defineStore('app', () => {
               const customName = config.value.custom_names[proj.path]
               if (customName) proj.name = customName
               if (config.value.favorites.includes(proj.id)) proj.is_favorite = true
+              maxOrder++
+              proj.sort_order = maxOrder
               updated.push(proj)
             }
           }
