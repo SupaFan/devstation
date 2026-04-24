@@ -6,6 +6,7 @@ export interface Project {
   git_url: string
   version: string
   branch: string
+  last_commit_message: string
   port: number | null
   is_favorite: boolean
   last_run_time: string

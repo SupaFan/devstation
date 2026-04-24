@@ -24,6 +24,7 @@ pub fn run() {
             // Git commands
             git::get_remote_url,
             git::get_branch,
+            git::get_last_commit_message,
             git::batch_pull,
             git::check_outdated,
             // Runner commands
@@ -31,6 +32,7 @@ pub fn run() {
             runner::run_build,
             runner::run_script,
             runner::stop_process_on_port,
+            runner::find_listening_port,
             // System commands
             system::open_in_ide,
             system::open_in_terminal,

@@ -11,6 +11,8 @@ pub struct Project {
     pub version: String,
     #[serde(default)]
     pub branch: String,
+    #[serde(default)]
+    pub last_commit_message: String,
     pub port: Option<u32>,
     #[serde(default)]
     pub is_favorite: bool,

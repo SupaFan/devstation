@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevStation 公众号推文</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;">
+<div style="max-width:578px;margin:0 auto;background:#fff;padding:30px 20px;">
+
+  <!-- 正文开始 -->
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    我手上同时跑着4个项目——Vue 3 后台、Nuxt 官网、React 组件库、Next.js SaaS。每天早上开电脑第一件事：开4个终端标签页，cd 四次，<code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">pnpm dev</code> 敲四遍。切分支拉代码，又四个终端。有一次我掐了秒，光"启动项目"这个动作，每天重复 6-8 次，每次 30 秒到 1 分钟。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    不是这些操作难，是没有一个地方能把这些动作"收"起来。Finder 找目录、终端跑命令、IDE 开项目、浏览器看效果——<strong style="color:#1a1a1a;">四个工具来回切，切的就是你的注意力和时间</strong>。算一笔账：每次"找目录→开终端→cd→启动 dev"平均 45 秒，一天 6 次，一个月 22 个工作日，光这一个动作就吃掉<strong style="color:#c7254e;">近 100 分钟</strong>。还不算"端口被占了到底是哪个项目""这个项目的 build 命令叫 build 还是 build:prod"这种零碎的卡壳。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    今天介绍一个工具，叫 <strong style="color:#333;">DevStation</strong>，macOS 原生桌面应用，干的事情很朴素：<strong style="color:#333;">把散落在 Finder、终端、IDE 里的项目操作，收拢到一个界面里，一个按钮搞定一件事。</strong>
+  </p>
+
+  <!-- 分隔线 -->
+  <div style="border:none;border-top:1px dashed #ddd;margin:30px 0;"></div>
+
+  <!-- 分点1 -->
+  <h3 style="margin:0 0 15px 0;padding:0;font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;">
+    ① 一键启动：从"cd 八百遍"到"点一下"
+  </h3>
+
+  <p style="margin:0 0 12px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    <strong style="color:#1a1a1a;">项目的 dev 和 build，不该是你的重复劳动。</strong>
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    DevStation 的表格里，每个项目右边有一个绿色播放按钮。点一下，它自动帮你开一个新终端窗口，cd 到项目目录，执行 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">pnpm dev</code>。运行中的项目按钮变红，再点一下直接杀掉对应端口的进程。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    我之前每次启动项目要经历：打开 Finder → 找到 Projects 目录 → 找到子文件夹 → 右键"在终端打开" → 等终端启动 → 输入 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">pnpm dev</code>。<strong style="color:#1a1a1a;">6步，45秒。</strong> 现在是：打开 DevStation → 点绿色按钮。<strong style="color:#1a1a1a;">2步，3秒。</strong>
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#555;letter-spacing:0.5px;border-left:3px solid #ddd;padding-left:12px;">
+    为什么这件事值得做？因为你每天要做 6-8 次。一次省 42 秒不起眼，但一个月省下来的时间够你看完一本技术书。
+  </p>
+
+  <!-- 分点2 -->
+  <h3 style="margin:0 0 15px 0;padding:0;font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;">
+    ② 批量 Git Pull：早会前不用再挨个切
+  </h3>
+
+  <p style="margin:0 0 12px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    <strong style="color:#1a1a1a;">拉代码这件事，从来就不该一个一个来。</strong>
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    每天早会前拉代码是固定流程。4个项目意味着：切到终端标签页1 → <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">git pull</code> → 等几秒 → 切到标签页2 → <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">git pull</code> → 再等……如果某个项目有冲突，你还得切到 IDE 解决冲突，再切回来继续拉下一个。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    DevStation 支持勾选多个项目，一键全部 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">git pull</code>。哪几个有更新、哪几个已经是最新的，一眼就能看到。<strong style="color:#1a1a1a;">我现在的早会前流程：打开 DevStation → 全选 → 点 Pull → 去倒杯咖啡回来就好了。</strong>
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#555;letter-spacing:0.5px;border-left:3px solid #ddd;padding-left:12px;">
+    拆开来看，这件事的本质是：把"N个项目 × N次操作"变成"1次操作"。N越大，省的时间越多。
+  </p>
+
+  <!-- 分点3 -->
+  <h3 style="margin:0 0 15px 0;padding:0;font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;">
+    ③ 过期依赖检查：别等线上报警才知道该升级
+  </h3>
+
+  <p style="margin:0 0 12px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    <strong style="color:#1a1a1a;">你项目里的依赖包，大概率已经过期了你不知道。</strong>
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    前端项目的依赖更新频率极高——Vue、React、Vite 这些核心包基本两周一更。但你什么时候会主动跑 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">pnpm outdated</code>？大多数人是在某个包出了 bug、查到 issue 里写着"已在新版本修复"的时候，才想起来看一眼版本。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    DevStation 的菜单里有个"检查过期依赖"，点一下帮你跑 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">pnpm outdated</code>，哪些包该升了、当前版本是什么、最新版本是什么，直接列出来。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    我上周查了一下，我的 Nuxt 项目里有 <strong style="color:#c7254e;">7 个包已经过期了 2 个大版本</strong>。其中一个 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">@vueuse/core</code> 的更新修了一个内存泄漏的 bug——<strong style="color:#1a1a1a;">这个 bug 我两个月前就在生产环境遇到了，当时排查了整整半天。</strong> 如果当时就看到过期提醒，半天的时间就省下来了。
+  </p>
+
+  <!-- 分点4 -->
+  <h3 style="margin:0 0 15px 0;padding:0;font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;">
+    ④ 工作区扫描：加项目不用手动一个个导
+  </h3>
+
+  <p style="margin:0 0 12px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    <strong style="color:#1a1a1a;">新项目加进来，应该是秒级的事，不是分钟级的事。</strong>
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    DevStation 支持两种加项目的方式：单个选择文件夹，或者扫描整个工作区。如果你的项目都在 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">~/Projects</code> 下面，点一下"扫描工作区"，它会自动发现所有包含 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">package.json</code> 的子目录，批量导入。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    更关键的是，导入之后它自动干活：<strong style="color:#1a1a1a;">框架识别</strong>（Vue/React/Nuxt/Next.js/Angular/Svelte）、<strong style="color:#1a1a1a;">版本号读取</strong>、<strong style="color:#1a1a1a;">Git 分支和远程地址拉取</strong>、<strong style="color:#1a1a1a;">端口检测</strong>。你不用填任何信息，加进来就能用。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    我第一次用的时候，扫描了一个包含 12 个项目的文件夹，<strong style="color:#c7254e;">不到 5 秒全部导入完毕</strong>，12 个项目的框架、版本、分支、端口全部自动识别。如果手动加，每个项目至少 2 分钟，12 个就是 24 分钟。
+  </p>
+
+  <!-- 分隔线 -->
+  <div style="border:none;border-top:1px dashed #ddd;margin:30px 0;"></div>
+
+  <!-- 反常识段落 -->
+  <h3 style="margin:0 0 15px 0;padding:0;font-size:17px;font-weight:bold;color:#1a1a1a;line-height:1.6;">
+    说个可能反直觉的
+  </h3>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    <strong style="color:#1a1a1a;">你不需要更快的终端，你需要更少的终端。</strong>
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    很多人优化效率的第一反应是：换个更快的终端工具、学更多的快捷键、写更多的 alias。我也干过——给终端配了 20 多个 alias，<code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">d</code> 代表 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">pnpm dev</code>，<code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">b</code> 代表 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">pnpm build</code>，<code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">gp</code> 代表 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">git pull</code>。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    有用吗？有用。解决问题了吗？没有。因为<strong style="color:#1a1a1a;">问题的根源不是终端慢，是操作散</strong>。你的项目信息在 Finder 里，运行状态在终端里，代码在 IDE 里，依赖版本在 package.json 里——四个地方，你一直在做的就是在这四个地方来回跳。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    DevStation 做的事情不是"加速某个环节"，而是<strong style="color:#1a1a1a;">把环节本身砍掉</strong>。你不需要"更快地 cd"，你需要"不 cd"。
+  </p>
+
+  <!-- 分隔线 -->
+  <div style="border:none;border-top:1px dashed #ddd;margin:30px 0;"></div>
+
+  <!-- 结尾 -->
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    DevStation 是开源的，MIT 协议，macOS 专属。去 Release 页面下载 <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:13px;color:#c7254e;">.dmg</code>，拖进 Applications，5 分钟就能跑起来。数据全存在本地，不上传不联网。
+  </p>
+
+  <p style="margin:0 0 20px 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    如果你手上有 3 个以上的前端项目，今天装上试试。先把工作区扫描跑一遍，看看你的项目全貌——<strong style="color:#1a1a1a;">你可能不知道自己手上有多少过期依赖了。</strong>
+  </p>
+
+  <p style="margin:0 0 0 0;padding:0;font-size:15px;line-height:2;color:#333;letter-spacing:0.5px;">
+    装完在评论区告诉我你扫出了多少个项目，我们比比谁的多。
+  </p>
+
+</div>
+</body>
+</html>

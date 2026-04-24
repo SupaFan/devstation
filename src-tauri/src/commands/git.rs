@@ -38,6 +38,23 @@ pub fn get_branch(path: String) -> Result<String, String> {
 }
 
 #[command]
+pub fn get_last_commit_message(path: String) -> Result<String, String> {
+    let p = PathBuf::from(&path);
+    std::process::Command::new("git")
+        .args(["log", "-1", "--pretty=%s"])
+        .current_dir(&p)
+        .output()
+        .map(|o| {
+            if o.status.success() {
+                String::from_utf8_lossy(&o.stdout).trim().to_string()
+            } else {
+                String::new()
+            }
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[command]
 pub fn check_outdated(path: String) -> Result<Vec<OutdatedDep>, String> {
     let p = PathBuf::from(&path);
     if !p.exists() {

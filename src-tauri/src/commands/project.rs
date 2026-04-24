@@ -174,6 +174,7 @@ fn build_project(path: &PathBuf) -> Option<Project> {
         git_url: String::new(),
         version,
         branch: String::new(),
+        last_commit_message: String::new(),
         port,
         is_favorite: false,
         last_run_time: String::new(),

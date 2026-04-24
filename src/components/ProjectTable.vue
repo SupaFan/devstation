@@ -33,11 +33,20 @@ const editSortValue = ref('')
 
 async function handleRunDev(project: Project) {
   try {
-    await store.runDev(project.path)
-    message.success(`正在启动 ${project.name}...`)
+    const result = await store.runDev(project.path)
+    if (result === 'started') message.success(`正在启动 ${project.name}...`)
+    else if (result === 'stopped') message.success(`已停止 ${project.name}`)
   } catch (e: any) {
     message.error(e as string)
   }
+}
+
+function getDevActionState(project: Project) {
+  return store.devActionStates[project.path]
+}
+
+function isDevRunning(project: Project) {
+  return project.port != null && store.runningPorts.has(project.port)
 }
 
 async function handleBuild(project: Project) {
@@ -151,12 +160,8 @@ function handleMoreAction(key: string, project: Project) {
   }
 }
 
-function frameworkColor(fw: string): string {
-  const colors: Record<string, string> = {
-    Vue: '#42b883', React: '#61dafb', Angular: '#dd0031',
-    Nuxt: '#00dc82', Next: '#000000', Svelte: '#ff3e00',
-  }
-  return colors[fw] || '#999'
+function getLastCommitMessage(project: Project) {
+  return project.last_commit_message || '-'
 }
 
 function startEditSort(project: Project) {
@@ -236,11 +241,17 @@ const columns: DataTableColumns<Project> = [
     },
   },
   {
-    title: '框架',
-    key: 'framework',
-    width: 90,
+    title: '提交记录',
+    key: 'last_commit_message',
+    width: 220,
     render(row) {
-      return h(NTag, { size: 'small', bordered: false, color: { color: frameworkColor(row.framework) + '20', textColor: frameworkColor(row.framework) } }, () => row.framework)
+      const message = getLastCommitMessage(row)
+      return h(NTooltip, null, {
+        trigger: () => h('span', {
+          style: 'display: block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px;',
+        }, message),
+        default: () => message,
+      })
     },
   },
   {
@@ -268,18 +279,24 @@ const columns: DataTableColumns<Project> = [
       return h(NSpace, { size: 4, align: 'center' }, () => [
         h(NTooltip, null, {
           trigger: () => {
-            const isRunning = row.port != null && store.runningPorts.has(row.port)
+            const isRunning = isDevRunning(row)
+            const actionState = getDevActionState(row)
             return h(NButton, {
               size: 'small',
               type: isRunning ? 'error' : 'success',
               quaternary: true,
+              loading: actionState != null,
+              disabled: actionState != null,
               onClick: () => handleRunDev(row),
             }, {
               icon: () => h(NIcon, { component: isRunning ? StopOutline : PlayOutline }),
             })
           },
           default: () => {
-            const isRunning = row.port != null && store.runningPorts.has(row.port)
+            const actionState = getDevActionState(row)
+            if (actionState === 'starting') return '启动中...'
+            if (actionState === 'stopping') return '停止中...'
+            const isRunning = isDevRunning(row)
             const cmd = row.custom_dev_command || `${store.config.package_manager} ${store.config.dev_script}`
             return isRunning ? `停止 (port :${row.port})` : cmd
           },
@@ -336,9 +353,12 @@ const columns: DataTableColumns<Project> = [
               </template>
             </NButton>
             <span class="card-name">{{ project.name }}</span>
-            <NTag size="tiny" :bordered="false" :color="{ color: frameworkColor(project.framework) + '20', textColor: frameworkColor(project.framework) }">
-              {{ project.framework }}
-            </NTag>
+            <NTooltip>
+              <template #trigger>
+                <span class="card-commit">{{ getLastCommitMessage(project) }}</span>
+              </template>
+              {{ getLastCommitMessage(project) }}
+            </NTooltip>
           </div>
           <span class="card-version">v{{ project.version }}</span>
         </div>
@@ -365,13 +385,15 @@ const columns: DataTableColumns<Project> = [
           </template>
           <NButton
             size="tiny"
-            :type="project.port && store.runningPorts.has(project.port) ? 'error' : 'success'"
+            :type="isDevRunning(project) ? 'error' : 'success'"
+            :loading="getDevActionState(project) != null"
+            :disabled="getDevActionState(project) != null"
             @click="handleRunDev(project)"
           >
             <template #icon>
-              <NIcon :component="project.port && store.runningPorts.has(project.port) ? StopOutline : PlayOutline" />
+              <NIcon :component="isDevRunning(project) ? StopOutline : PlayOutline" />
             </template>
-            {{ project.port && store.runningPorts.has(project.port) ? '停止' : '运行' }}
+            {{ getDevActionState(project) === 'starting' ? '启动中' : getDevActionState(project) === 'stopping' ? '停止中' : isDevRunning(project) ? '停止' : '运行' }}
           </NButton>
           <NButton size="tiny" type="warning" @click="handleBuild(project)">
             <template #icon><NIcon :component="BuildOutline" /></template>
@@ -468,11 +490,23 @@ const columns: DataTableColumns<Project> = [
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .card-name {
   font-weight: 600;
   font-size: 14px;
+  flex-shrink: 0;
+}
+
+.card-commit {
+  display: inline-block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #666;
+  font-size: 12px;
 }
 
 .card-version {

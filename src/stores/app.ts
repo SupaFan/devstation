@@ -22,6 +22,8 @@ export const useAppStore = defineStore('app', () => {
   const outdatedCache = ref<Record<string, OutdatedDep[]>>({})
   const selectedIds = ref<string[]>([])
   const runningPorts = ref<Set<number>>(new Set())
+  const runningTtys = ref<Map<string, string>>(new Map()) // projectPath → tty
+  const devActionStates = ref<Record<string, 'starting' | 'stopping'>>({})
 
   async function loadConfig() {
     try {
@@ -123,6 +125,7 @@ export const useAppStore = defineStore('app', () => {
           proj.last_build_time = existing.last_build_time
           proj.git_url = existing.git_url
           proj.branch = existing.branch
+          proj.last_commit_message = existing.last_commit_message
           proj.sort_order = existing.sort_order
           proj.custom_dev_command = existing.custom_dev_command
           proj.custom_build_command = existing.custom_build_command
@@ -160,6 +163,9 @@ export const useAppStore = defineStore('app', () => {
           fresh.is_favorite = proj.is_favorite
           fresh.last_run_time = proj.last_run_time
           fresh.last_build_time = proj.last_build_time
+          fresh.git_url = proj.git_url
+          fresh.branch = proj.branch
+          fresh.last_commit_message = proj.last_commit_message
           fresh.custom_dev_command = proj.custom_dev_command
           fresh.custom_build_command = proj.custom_build_command
           fresh.sort_order = proj.sort_order
@@ -203,9 +209,11 @@ export const useAppStore = defineStore('app', () => {
     try {
       const gitUrl = await invoke<string>('get_remote_url', { path: project.path }).catch(() => '')
       const branch = await invoke<string>('get_branch', { path: project.path }).catch(() => '')
+      const lastCommitMessage = await invoke<string>('get_last_commit_message', { path: project.path }).catch(() => '')
       console.log('[DevStation] git info:', project.dir_name, 'branch:', branch, 'url:', gitUrl)
       project.git_url = gitUrl
       project.branch = branch
+      project.last_commit_message = lastCommitMessage
       await saveConfig()
     } catch (e) {
       console.error('[DevStation] fetchGitInfo failed:', e)
@@ -215,12 +223,14 @@ export const useAppStore = defineStore('app', () => {
   async function refreshGitInfo() {
     const promises = config.value.projects.map(async (proj) => {
       try {
-        const [gitUrl, branch] = await Promise.all([
+        const [gitUrl, branch, lastCommitMessage] = await Promise.all([
           invoke<string>('get_remote_url', { path: proj.path }),
           invoke<string>('get_branch', { path: proj.path }),
+          invoke<string>('get_last_commit_message', { path: proj.path }),
         ])
         proj.git_url = gitUrl
         proj.branch = branch
+        proj.last_commit_message = lastCommitMessage
       } catch { /* ignore */ }
     })
     await Promise.allSettled(promises)
@@ -241,18 +251,27 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function runDev(projectPath: string) {
+  async function runDev(projectPath: string): Promise<'started' | 'stopped' | 'busy' | null> {
     const proj = config.value.projects.find(p => p.path === projectPath)
-    if (!proj) return
+    if (!proj) return null
+    if (devActionStates.value[projectPath]) return 'busy'
 
-    // If already running, stop it
+    // If already marked running, verify the port first so stale UI state does not turn into a stop action.
     if (proj.port && runningPorts.value.has(proj.port)) {
-      await stopDev(proj.port)
-      return
+      const isActuallyRunning = await invoke<boolean>('detect_port_in_use', { port: proj.port }).catch(() => false)
+      if (isActuallyRunning) {
+        await stopDev(proj.port, projectPath)
+        return 'stopped'
+      }
+      runningPorts.value.delete(proj.port)
+      runningTtys.value.delete(projectPath)
+    } else if (runningTtys.value.has(projectPath)) {
+      runningTtys.value.delete(projectPath)
     }
 
     try {
-      await invoke('run_dev', {
+      devActionStates.value = { ...devActionStates.value, [projectPath]: 'starting' }
+      const terminalRef = await invoke<string>('run_dev', {
         path: projectPath,
         packageManager: config.value.package_manager,
         devScript: config.value.dev_script,
@@ -260,34 +279,94 @@ export const useAppStore = defineStore('app', () => {
       })
       proj.last_run_time = new Date().toISOString()
       await saveConfig()
-      // After a short delay, detect if port becomes active
-      if (proj.port) {
-        setTimeout(() => checkPortRunning(proj.port!), 5000)
+
+      // Store TTY for this project
+      if (terminalRef) {
+        runningTtys.value.set(projectPath, terminalRef)
       }
+
+      // Poll for actual listening port using TTY (or fallback to static port)
+      const poll = async (retries = 10) => {
+        let actualPort: number | null = null
+
+        // Try TTY-based detection first
+        if (terminalRef) {
+          try {
+            actualPort = await invoke<number | null>('find_listening_port', { tty: terminalRef })
+          } catch { /* ignore */ }
+        }
+
+        // Fallback to static port check
+        if (actualPort == null && proj.port) {
+          const inUse = await invoke<boolean>('detect_port_in_use', { port: proj.port })
+          if (inUse) actualPort = proj.port
+        }
+
+        if (actualPort != null) {
+          runningPorts.value.add(actualPort)
+          const { [projectPath]: _done, ...rest } = devActionStates.value
+          devActionStates.value = rest
+          // Update project port if it differs (e.g. Vite auto-incremented)
+          if (proj.port !== actualPort) {
+            proj.port = actualPort
+            await saveConfig()
+          }
+        } else if (--retries > 0) {
+          setTimeout(() => poll(retries), 3000)
+        } else {
+          runningTtys.value.delete(projectPath)
+          const { [projectPath]: _done, ...rest } = devActionStates.value
+          devActionStates.value = rest
+        }
+      }
+      setTimeout(() => poll(), 3000)
+      return 'started'
     } catch (e) { console.error('运行 dev 失败:', e); throw e }
+    finally {
+      if (!runningTtys.value.has(projectPath)) {
+        const { [projectPath]: _done, ...rest } = devActionStates.value
+        devActionStates.value = rest
+      }
+    }
   }
 
-  async function stopDev(port: number) {
+  async function stopDev(port: number, projectPath?: string) {
     try {
-      await invoke('stop_process_on_port', { port })
+      if (projectPath && devActionStates.value[projectPath]) return
+      if (projectPath) {
+        devActionStates.value = { ...devActionStates.value, [projectPath]: 'stopping' }
+      }
+      const terminalRef = projectPath ? runningTtys.value.get(projectPath) : undefined
+      await invoke('stop_process_on_port', { port, terminalRef: terminalRef || null })
       runningPorts.value.delete(port)
+      if (projectPath) runningTtys.value.delete(projectPath)
     } catch (e) { console.error('停止失败:', e) }
+    finally {
+      if (projectPath) {
+        const { [projectPath]: _done, ...rest } = devActionStates.value
+        devActionStates.value = rest
+      }
+    }
   }
 
-  async function checkPortRunning(port: number) {
+  async function checkPortRunning(port: number, projectPath?: string) {
     try {
       const inUse = await invoke<boolean>('detect_port_in_use', { port })
       if (inUse) runningPorts.value.add(port)
-      else runningPorts.value.delete(port)
+      else {
+        runningPorts.value.delete(port)
+        if (projectPath) runningTtys.value.delete(projectPath)
+      }
     } catch { /* ignore */ }
   }
 
   async function checkAllRunningPorts() {
-    const ports = config.value.projects
-      .map(p => p.port)
-      .filter((p): p is number => p != null)
-    for (const port of ports) {
-      await checkPortRunning(port)
+    for (const project of config.value.projects) {
+      if (project.port != null) {
+        await checkPortRunning(project.port, project.path)
+      } else {
+        runningTtys.value.delete(project.path)
+      }
     }
   }
 
@@ -390,7 +469,8 @@ export const useAppStore = defineStore('app', () => {
         p.name.toLowerCase().includes(q) ||
         p.dir_name.toLowerCase().includes(q) ||
         p.path.toLowerCase().includes(q) ||
-        p.framework.toLowerCase().includes(q)
+        p.framework.toLowerCase().includes(q) ||
+        p.last_commit_message.toLowerCase().includes(q)
       )
     }
 
@@ -405,7 +485,7 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     config, loading, searchQuery, viewMode, filterMode, currentView,
-    outdatedCache, selectedIds, runningPorts,
+    outdatedCache, selectedIds, runningPorts, runningTtys, devActionStates,
     loadConfig, saveConfig, selectFolders,
     addProjects, addWorkspaceFolders, removeWorkspaceFolder,
     scanAllProjects, refreshAllProjects, removeProjects,
