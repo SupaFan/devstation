@@ -3,6 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "description": "项目管理",
+  "main": "index.html",
+  "tauri": {
+    "allowlist": [
+      "dialog",
+      "fs",
+      "opener",
+      "shell"
+    ]
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",

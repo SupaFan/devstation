@@ -130,10 +130,18 @@ async function handleRemoveSingle(project: Project) {
   message.success(`已移除 ${project.name}`)
 }
 
-function handleCopyInfo(project: Project) {
-  const text = `${project.name} ${project.dir_name} tag-bzh-v${project.version}`
-  navigator.clipboard.writeText(text)
-  message.success('已复制: ' + text)
+function getCopyInfoText(project: Project) {
+  return `${project.name} ${project.dir_name} tag-bzh-${project.version}`
+}
+
+async function handleCopyInfo(project: Project) {
+  const text = getCopyInfoText(project)
+  try {
+    await navigator.clipboard.writeText(text)
+    message.success('已复制: ' + text)
+  } catch {
+    message.error('复制失败')
+  }
 }
 
 function getMoreActions(project: Project) {
