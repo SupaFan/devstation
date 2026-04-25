@@ -7,7 +7,7 @@ import {
 import type { DataTableColumns } from 'naive-ui'
 import {
   PlayOutline, BuildOutline, OpenOutline,
-  StarOutline, Star, EllipsisVerticalOutline, StopOutline
+  StarOutline, Star, EllipsisVerticalOutline, StopOutline, CopyOutline
 } from '@vicons/ionicons5'
 import { useAppStore } from '../stores/app'
 import type { Project, ViewMode, OutdatedDep } from '../types'
@@ -128,6 +128,12 @@ async function saveCommands() {
 async function handleRemoveSingle(project: Project) {
   await store.removeProjects([project.id])
   message.success(`已移除 ${project.name}`)
+}
+
+function handleCopyInfo(project: Project) {
+  const text = `${project.name} ${project.dir_name} tag-bzh-v${project.version}`
+  navigator.clipboard.writeText(text)
+  message.success('已复制: ' + text)
 }
 
 function getMoreActions(project: Project) {
@@ -259,7 +265,7 @@ const columns: DataTableColumns<Project> = [
     key: 'version',
     minWidth: 180,
     render(row) {
-      return h('span', { style: 'font-family: monospace; font-size: 13px;' }, `v${row.version}`)
+      return h('span', { style: 'font-family: monospace; font-size: 13px;' }, `tag-bzh-v${row.version}`)
     },
   },
   {
@@ -273,7 +279,7 @@ const columns: DataTableColumns<Project> = [
   {
     title: '操作',
     key: 'actions',
-    width: 200,
+    width: 230,
     fixed: 'right',
     render(row) {
       return h(NSpace, { size: 4, align: 'center' }, () => [
@@ -310,6 +316,11 @@ const columns: DataTableColumns<Project> = [
           trigger: () => h(NButton, { size: 'small', type: 'info', quaternary: true, onClick: () => handleOpenIde(row) },
             { icon: () => h(NIcon, { component: OpenOutline }) }),
           default: () => `用 ${store.config.ide_command} 打开`,
+        }),
+        h(NTooltip, null, {
+          trigger: () => h(NButton, { size: 'small', quaternary: true, onClick: () => handleCopyInfo(row) },
+            { icon: () => h(NIcon, { component: CopyOutline }) }),
+          default: () => '复制信息',
         }),
         h(NDropdown, {
           options: getMoreActions(row),
@@ -353,14 +364,16 @@ const columns: DataTableColumns<Project> = [
               </template>
             </NButton>
             <span class="card-name">{{ project.name }}</span>
-            <NTooltip>
-              <template #trigger>
-                <span class="card-commit">{{ getLastCommitMessage(project) }}</span>
-              </template>
-              {{ getLastCommitMessage(project) }}
-            </NTooltip>
           </div>
           <span class="card-version">v{{ project.version }}</span>
+        </div>
+        <div class="card-commit-row">
+          <NTooltip>
+            <template #trigger>
+              <span class="card-commit">{{ getLastCommitMessage(project) }}</span>
+            </template>
+            {{ getLastCommitMessage(project) }}
+          </NTooltip>
         </div>
         <div class="card-info">
           <span class="card-dir">{{ project.dir_name }}</span>
@@ -403,6 +416,14 @@ const columns: DataTableColumns<Project> = [
             <template #icon><NIcon :component="OpenOutline" /></template>
             打开
           </NButton>
+          <NTooltip>
+            <template #trigger>
+              <NButton size="tiny" quaternary @click="handleCopyInfo(project)">
+                <template #icon><NIcon :component="CopyOutline" /></template>
+              </NButton>
+            </template>
+            复制信息
+          </NTooltip>
           <NDropdown :options="getMoreActions(project)" @select="(key: string) => handleMoreAction(key, project)">
             <NButton size="tiny" quaternary>
               <template #icon><NIcon :component="EllipsisVerticalOutline" /></template>
@@ -499,9 +520,13 @@ const columns: DataTableColumns<Project> = [
   flex-shrink: 0;
 }
 
+.card-commit-row {
+  margin-bottom: 6px;
+}
+
 .card-commit {
   display: inline-block;
-  max-width: 150px;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -513,6 +538,7 @@ const columns: DataTableColumns<Project> = [
   font-family: monospace;
   font-size: 12px;
   color: #999;
+  flex-shrink: 0;
 }
 
 .card-info {
