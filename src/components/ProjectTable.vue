@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, ref } from 'vue'
+import { h, ref, computed } from 'vue'
 import {
   NDataTable, NCard, NSpace, NButton, NIcon, NTag, NTooltip, NDropdown,
   NEmpty, useMessage, NModal, NList, NListItem, NInput, NInputGroup, NForm, NFormItem
@@ -7,7 +7,8 @@ import {
 import type { DataTableColumns } from 'naive-ui'
 import {
   PlayOutline, BuildOutline, OpenOutline,
-  StarOutline, Star, EllipsisVerticalOutline, StopOutline, CopyOutline
+  StarOutline, Star, EllipsisVerticalOutline, StopOutline, CopyOutline,
+  ReorderTwoOutline
 } from '@vicons/ionicons5'
 import { useAppStore } from '../stores/app'
 import type { Project, ViewMode, OutdatedDep } from '../types'
@@ -28,8 +29,30 @@ const showCommandModal = ref(false)
 const commandProject = ref<Project | null>(null)
 const editDevCommand = ref('')
 const editBuildCommand = ref('')
-const editingSortId = ref<string | null>(null)
-const editSortValue = ref('')
+const showTagModal = ref(false)
+const tagProject = ref<Project | null>(null)
+const newTagInput = ref('')
+const dragSourceId = ref<string | null>(null)
+const dragOverId = ref<string | null>(null)
+
+const availableSuggestions = computed(() => {
+  if (!tagProject.value) return []
+  const currentTags = new Set(tagProject.value.tags || [])
+  return store.allTags.filter(t => !currentTags.has(t))
+})
+
+const TAG_HUES = [0, 25, 45, 120, 160, 200, 260, 300, 340, 30, 80, 180]
+
+function getTagColor(tag: string) {
+  let hash = 0
+  for (const c of tag) hash = c.charCodeAt(0) + ((hash << 5) - hash)
+  const hue = TAG_HUES[Math.abs(hash) % TAG_HUES.length]
+  return {
+    color: `hsl(${hue}, 70%, 95%)`,
+    borderColor: `hsl(${hue}, 70%, 75%)`,
+    textColor: `hsl(${hue}, 70%, 35%)`,
+  }
+}
 
 async function handleRunDev(project: Project) {
   try {
@@ -125,13 +148,47 @@ async function saveCommands() {
   message.success('命令配置已保存')
 }
 
+function openTagModal(project: Project) {
+  tagProject.value = project
+  newTagInput.value = ''
+  showTagModal.value = true
+}
+
+async function addTag() {
+  if (!tagProject.value) return
+  const tag = newTagInput.value.trim()
+  if (!tag) return
+  const tags = [...(tagProject.value.tags || [])]
+  if (tags.includes(tag)) return
+  tags.push(tag)
+  await store.updateProjectTags(tagProject.value.path, tags)
+  tagProject.value = { ...tagProject.value, tags }
+  newTagInput.value = ''
+}
+
+async function removeTag(tag: string) {
+  if (!tagProject.value) return
+  const tags = (tagProject.value.tags || []).filter(t => t !== tag)
+  await store.updateProjectTags(tagProject.value.path, tags)
+  tagProject.value = { ...tagProject.value, tags }
+}
+
+async function addExistingTag(tag: string) {
+  if (!tagProject.value) return
+  const tags = [...(tagProject.value.tags || [])]
+  if (tags.includes(tag)) return
+  tags.push(tag)
+  await store.updateProjectTags(tagProject.value.path, tags)
+  tagProject.value = { ...tagProject.value, tags }
+}
+
 async function handleRemoveSingle(project: Project) {
   await store.removeProjects([project.id])
   message.success(`已移除 ${project.name}`)
 }
 
 function getCopyInfoText(project: Project) {
-  return `${project.name} ${project.dir_name} tag-bzh-${project.version}`
+  return `${project.name} ${project.dir_name} tag-bzh-v${project.version}`
 }
 
 async function handleCopyInfo(project: Project) {
@@ -151,6 +208,7 @@ function getMoreActions(project: Project) {
     { label: 'Git Pull', key: 'pull' },
     { label: '检查过期依赖', key: 'outdated' },
     { label: '配置命令', key: 'command' },
+    { label: '管理标签', key: 'tags' },
     { type: 'divider', key: 'd2' },
     { label: '从列表移除', key: 'remove', props: { style: 'color: #d03050;' } },
     { type: 'divider', key: 'd1' },
@@ -166,6 +224,7 @@ function handleMoreAction(key: string, project: Project) {
   else if (key === 'pull') handlePull(project)
   else if (key === 'outdated') handleCheckOutdated(project)
   else if (key === 'command') openCommandModal(project)
+  else if (key === 'tags') openTagModal(project)
   else if (key === 'remove') handleRemoveSingle(project)
   else if (key.startsWith('script:')) {
     const script = key.slice(7)
@@ -178,15 +237,35 @@ function getLastCommitMessage(project: Project) {
   return project.last_commit_message || '-'
 }
 
-function startEditSort(project: Project) {
-  editingSortId.value = project.id
-  editSortValue.value = project.sort_order ? String(project.sort_order) : ''
-}
-
-async function saveSort(project: Project) {
-  const num = parseInt(editSortValue.value) || 0
-  await store.updateSortOrder(project.path, num)
-  editingSortId.value = null
+function getRowProps(row: Project): Record<string, any> {
+  return {
+    draggable: true,
+    onDragstart: () => {
+      dragSourceId.value = row.id
+    },
+    onDragover: (e: DragEvent) => {
+      e.preventDefault()
+      dragOverId.value = row.id
+    },
+    onDragleave: () => {
+      if (dragOverId.value === row.id) dragOverId.value = null
+    },
+    onDrop: () => {
+      if (dragSourceId.value && dragSourceId.value !== row.id) {
+        store.reorderProjects(dragSourceId.value, row.id)
+      }
+      dragSourceId.value = null
+      dragOverId.value = null
+    },
+    onDragend: () => {
+      dragSourceId.value = null
+      dragOverId.value = null
+    },
+    style: row.is_favorite
+      ? 'background-color: rgba(76, 175, 80, 0.08) !important'
+      : undefined,
+    class: dragOverId.value === row.id ? 'drag-over-row' : '',
+  }
 }
 
 const columns: DataTableColumns<Project> = [
@@ -194,9 +273,9 @@ const columns: DataTableColumns<Project> = [
     type: 'selection',
   },
   {
-    title: '',
+    title: '收藏',
     key: 'favorite',
-    width: 40,
+    width: 60,
     render(row) {
       return h(
         NButton,
@@ -207,25 +286,10 @@ const columns: DataTableColumns<Project> = [
   },
   {
     title: '排序',
-    key: 'sort_order',
-    width: 60,
-    render(row) {
-      if (editingSortId.value === row.id) {
-        return h(NInput, {
-          value: editSortValue.value,
-          'onUpdate:value': (v: string) => { editSortValue.value = v },
-          size: 'small',
-          style: 'width: 50px',
-          autofocus: true,
-          onBlur: () => saveSort(row),
-          onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') saveSort(row) },
-        })
-      }
-      return h('span', {
-        style: 'cursor: pointer; font-family: monospace; font-size: 13px; color: ' + (row.sort_order ? '#333' : '#ccc'),
-        onDblclick: () => startEditSort(row),
-        title: '双击编辑排序',
-      }, row.sort_order || '-')
+    key: 'drag',
+    width: 46,
+    render() {
+      return h(NIcon, { size: 16, color: '#bbb', style: 'cursor: grab;' }, () => h(ReorderTwoOutline))
     },
   },
   {
@@ -244,14 +308,28 @@ const columns: DataTableColumns<Project> = [
           }),
         ])
       }
-      return h('div', { style: 'display: flex; flex-direction: column; gap: 2px;' }, [
+      const children: any[] = [
         h('span', {
-          style: 'font-weight: 500; cursor: pointer;',
+          style: 'font-size: 12px; color: #999;',
           onDblclick: () => startEditName(row),
           title: '双击编辑名称',
         }, row.name),
-        h('span', { style: 'font-size: 12px; color: #999;' }, row.dir_name),
-      ])
+        h('span', { style: 'font-weight: 500; cursor: pointer;' }, row.dir_name),
+      ]
+      return h('div', { style: 'display: flex; flex-direction: column; gap: 2px;' }, children)
+    },
+  },
+  {
+    title: '标签',
+    key: 'tags',
+    width: 70,
+    render(row) {
+      if (!row.tags || row.tags.length === 0) return null
+      return h(NSpace, { size: 4, align: 'center' }, () =>
+        row.tags.map(tag =>
+          h(NTag, { size: 'tiny', round: true, color: getTagColor(tag) }, () => tag)
+        )
+      )
     },
   },
   {
@@ -354,6 +432,7 @@ const columns: DataTableColumns<Project> = [
       :row-key="(row: Project) => row.id"
       :checked-row-keys="store.selectedIds"
       @update:checked-row-keys="(keys: Array<string | number>) => store.selectedIds = keys as string[]"
+      :row-props="getRowProps"
       :scroll-x="1000"
       striped
       size="small"
@@ -361,7 +440,20 @@ const columns: DataTableColumns<Project> = [
 
     <!-- Card View -->
     <div v-else class="card-grid">
-      <NCard v-for="project in projects" :key="project.id" size="small" hoverable class="project-card">
+      <NCard
+        v-for="project in projects"
+        :key="project.id"
+        size="small"
+        hoverable
+        class="project-card"
+        :class="{ 'favorite-card': project.is_favorite }"
+        draggable="true"
+        @dragstart="dragSourceId = project.id"
+        @dragover.prevent="dragOverId = project.id"
+        @dragleave="dragOverId === project.id && (dragOverId = null)"
+        @drop="dragSourceId && dragSourceId !== project.id && store.reorderProjects(dragSourceId, project.id); dragSourceId = null; dragOverId = null"
+        @dragend="dragSourceId = null; dragOverId = null"
+      >
         <div class="card-header">
           <div class="card-title">
             <NButton quaternary circle size="tiny" @click="store.toggleFavorite(project.id)">
@@ -372,6 +464,7 @@ const columns: DataTableColumns<Project> = [
               </template>
             </NButton>
             <span class="card-name">{{ project.name }}</span>
+            <NIcon :size="14" color="#bbb" style="cursor: grab;"><ReorderTwoOutline /></NIcon>
           </div>
           <span class="card-version">v{{ project.version }}</span>
         </div>
@@ -388,22 +481,10 @@ const columns: DataTableColumns<Project> = [
           <NTag v-if="project.branch" size="tiny">{{ project.branch }}</NTag>
           <NTag v-if="project.port" size="tiny" type="info" :bordered="false">:{{ project.port }}</NTag>
         </div>
+        <div v-if="project.tags && project.tags.length > 0" class="card-tags">
+          <NTag v-for="tag in project.tags" :key="tag" size="tiny" round :color="getTagColor(tag)">{{ tag }}</NTag>
+        </div>
         <div class="card-actions">
-          <template v-if="editingSortId === project.id">
-            <NInput
-              v-model:value="editSortValue"
-              size="tiny"
-              style="width: 50px"
-              autofocus
-              @blur="saveSort(project)"
-              @keyup.enter="saveSort(project)"
-            />
-          </template>
-          <template v-else>
-            <NButton size="tiny" quaternary @dblclick="startEditSort(project)" title="双击编辑排序">
-              <span style="font-family: monospace; font-size: 12px;">{{ project.sort_order || '-' }}</span>
-            </NButton>
-          </template>
           <NButton
             size="tiny"
             :type="isDevRunning(project) ? 'error' : 'success'"
@@ -490,6 +571,58 @@ const columns: DataTableColumns<Project> = [
         <NButton type="primary" @click="saveCommands">保存</NButton>
       </div>
     </NModal>
+
+    <!-- Tag management modal -->
+    <NModal v-model:show="showTagModal" preset="card" title="管理标签" style="max-width: 480px;">
+      <template #header>
+        <span>{{ tagProject?.name }} - 管理标签</span>
+      </template>
+      <div v-if="tagProject" style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <NTag
+            v-for="tag in (tagProject.tags || [])"
+            :key="tag"
+            closable
+            round
+            :color="getTagColor(tag)"
+            @close="removeTag(tag)"
+          >
+            {{ tag }}
+          </NTag>
+          <span v-if="!tagProject.tags || tagProject.tags.length === 0" style="color: #999; font-size: 13px;">暂无标签</span>
+        </div>
+        <NInputGroup>
+          <NInput
+            v-model:value="newTagInput"
+            placeholder="输入新标签..."
+            size="small"
+            @keyup.enter="addTag"
+          />
+          <NButton type="primary" size="small" @click="addTag">添加</NButton>
+        </NInputGroup>
+        <div v-if="availableSuggestions.length > 0">
+          <div style="font-size: 12px; color: #999; margin-bottom: 6px;">已有标签（点击添加）</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+            <NTag
+              v-for="tag in availableSuggestions"
+              :key="tag"
+              size="small"
+              round
+              :color="getTagColor(tag)"
+              style="cursor: pointer;"
+              @click="addExistingTag(tag)"
+            >
+              {{ tag }}
+            </NTag>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end;">
+          <NButton @click="showTagModal = false">关闭</NButton>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
 
@@ -506,6 +639,10 @@ const columns: DataTableColumns<Project> = [
 
 .project-card:hover {
   transform: translateY(-2px);
+}
+
+.favorite-card {
+  background-color: rgba(76, 175, 80, 0.08) !important;
 }
 
 .card-header {
@@ -553,9 +690,16 @@ const columns: DataTableColumns<Project> = [
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   font-size: 12px;
   color: #666;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
 .card-dir {
@@ -565,5 +709,15 @@ const columns: DataTableColumns<Project> = [
 .card-actions {
   display: flex;
   gap: 6px;
+}
+</style>
+
+<style>
+/* Global style for table favorite rows - must be unscoped */
+.n-data-table-tr[style*="background-color"] td {
+  background-color: inherit !important;
+}
+.drag-over-row td {
+  border-top: 2px solid #18a058 !important;
 }
 </style>

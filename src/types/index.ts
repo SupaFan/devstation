@@ -16,6 +16,7 @@ export interface Project {
   custom_dev_command: string
   custom_build_command: string
   sort_order: number
+  tags: string[]
 }
 
 export interface AppConfig {

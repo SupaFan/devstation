@@ -29,6 +29,8 @@ pub struct Project {
     pub custom_build_command: String,
     #[serde(default)]
     pub sort_order: u32,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,7 +55,7 @@ impl Default for AppConfig {
             ide_command: "Trae".to_string(),
             package_manager: "pnpm".to_string(),
             dev_script: "dev".to_string(),
-            build_script: "build".to_string(),
+            build_script: "node git-tag-creator.mjs".to_string(),
         }
     }
 }

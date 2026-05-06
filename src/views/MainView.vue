@@ -14,6 +14,23 @@ import ProjectTable from '../components/ProjectTable.vue'
 const store = useAppStore()
 const message = useMessage()
 
+const TAG_HUES = [0, 25, 45, 120, 160, 200, 260, 300, 340, 30, 80, 180]
+
+function getTagColor(tag: string) {
+  let hash = 0
+  for (const c of tag) hash = c.charCodeAt(0) + ((hash << 5) - hash)
+  const hue = TAG_HUES[Math.abs(hash) % TAG_HUES.length]
+  return {
+    color: `hsl(${hue}, 70%, 95%)`,
+    borderColor: `hsl(${hue}, 70%, 75%)`,
+    textColor: `hsl(${hue}, 70%, 35%)`,
+  }
+}
+
+function toggleTagFilter(tag: string) {
+  store.selectedTagFilter = store.selectedTagFilter === tag ? null : tag
+}
+
 const filterOptions = [
   { label: '全部项目', value: 'all' },
   { label: '已收藏', value: 'favorites' },
@@ -130,7 +147,7 @@ async function handleBatchDelete() {
         v-model:value="store.searchQuery"
         placeholder="搜索项目..."
         clearable
-        style="max-width: 300px;"
+        style="max-width: 300px; border-radius: 100px;"
       >
         <template #prefix><NIcon :component="SearchOutline" /></template>
       </NInput>
@@ -142,6 +159,19 @@ async function handleBatchDelete() {
         size="small"
       />
 
+      <NTag
+        v-for="tag in store.allTags"
+        :key="tag"
+        size="small"
+        round
+        :color="getTagColor(tag)"
+        :bordered="store.selectedTagFilter !== tag"
+        style="cursor: pointer; user-select: none;"
+        :style="{ fontWeight: store.selectedTagFilter === tag ? '600' : 'normal' }"
+        @click="toggleTagFilter(tag)"
+      >
+        {{ tag }}
+      </NTag>
       <div style="flex: 1;" />
 
       <!-- Batch actions -->

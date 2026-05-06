@@ -184,6 +184,7 @@ fn build_project(path: &PathBuf) -> Option<Project> {
         custom_dev_command: String::new(),
         custom_build_command: String::new(),
         sort_order: 0,
+        tags: Vec::new(),
     })
 }
 

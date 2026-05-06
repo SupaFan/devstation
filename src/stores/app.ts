@@ -24,6 +24,7 @@ export const useAppStore = defineStore('app', () => {
   const runningPorts = ref<Set<number>>(new Set())
   const runningTtys = ref<Map<string, string>>(new Map()) // projectPath → tty
   const devActionStates = ref<Record<string, 'starting' | 'stopping'>>({})
+  const selectedTagFilter = ref<string | null>(null)
 
   async function loadConfig() {
     try {
@@ -129,6 +130,7 @@ export const useAppStore = defineStore('app', () => {
           proj.sort_order = existing.sort_order
           proj.custom_dev_command = existing.custom_dev_command
           proj.custom_build_command = existing.custom_build_command
+          proj.tags = existing.tags || []
         } else {
           maxOrder++
           proj.sort_order = maxOrder
@@ -169,6 +171,7 @@ export const useAppStore = defineStore('app', () => {
           fresh.custom_dev_command = proj.custom_dev_command
           fresh.custom_build_command = proj.custom_build_command
           fresh.sort_order = proj.sort_order
+          fresh.tags = proj.tags || []
           const customName = config.value.custom_names[proj.path]
           if (customName) fresh.name = customName
           updated.push(fresh)
@@ -379,8 +382,38 @@ export const useAppStore = defineStore('app', () => {
         buildScript: config.value.build_script,
         customCommand: proj?.custom_build_command || '',
       })
-      if (proj) { proj.last_build_time = new Date().toISOString(); await saveConfig() }
+      if (proj) {
+        proj.last_build_time = new Date().toISOString()
+        await saveConfig()
+        pollProjectRefresh(projectPath)
+      }
     } catch (e) { console.error('打包失败:', e); throw e }
+  }
+
+  function pollProjectRefresh(projectPath: string) {
+    const proj = config.value.projects.find(p => p.path === projectPath)
+    if (!proj) return
+    const originalVersion = proj.version
+    const originalBranch = proj.branch
+    let attempts = 0
+    const maxAttempts = 36 // 3 minutes at 5s intervals
+
+    const poll = async () => {
+      if (attempts >= maxAttempts) return
+      attempts++
+      try {
+        const fresh = await invoke<Project>('add_project', { path: projectPath })
+        if (fresh.version !== originalVersion || originalBranch !== (await invoke<string>('get_branch', { path: projectPath }).catch(() => originalBranch))) {
+          proj.version = fresh.version
+          proj.scripts = fresh.scripts
+          proj.framework = fresh.framework
+          await fetchSingleGitInfo(proj)
+          return
+        }
+      } catch { /* ignore */ }
+      setTimeout(poll, 5000)
+    }
+    setTimeout(poll, 5000)
   }
 
   async function runScript(projectPath: string, script: string) {
@@ -456,11 +489,45 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  async function updateProjectTags(projectPath: string, tags: string[]) {
+    const proj = config.value.projects.find(p => p.path === projectPath)
+    if (proj) {
+      proj.tags = tags
+      await saveConfig()
+    }
+  }
+
+  function reorderProjects(sourceId: string, targetId: string) {
+    const projects = config.value.projects
+    const sourceIdx = projects.findIndex(p => p.id === sourceId)
+    const targetIdx = projects.findIndex(p => p.id === targetId)
+    if (sourceIdx < 0 || targetIdx < 0 || sourceIdx === targetIdx) return
+    const [moved] = projects.splice(sourceIdx, 1)
+    const adjustedTargetIdx = targetIdx > sourceIdx ? targetIdx - 1 : targetIdx
+    projects.splice(adjustedTargetIdx, 0, moved)
+    projects.forEach((p, i) => { p.sort_order = i + 1 })
+    saveConfig()
+  }
+
+  const allTags = computed(() => {
+    const tagSet = new Set<string>()
+    for (const p of config.value.projects) {
+      for (const t of (p.tags || [])) {
+        tagSet.add(t)
+      }
+    }
+    return Array.from(tagSet).sort()
+  })
+
   const filteredProjects = computed(() => {
     let list = [...config.value.projects]
 
     if (filterMode.value === 'favorites') {
       list = list.filter(p => p.is_favorite)
+    }
+
+    if (selectedTagFilter.value) {
+      list = list.filter(p => (p.tags || []).includes(selectedTagFilter.value!))
     }
 
     if (searchQuery.value) {
@@ -486,6 +553,7 @@ export const useAppStore = defineStore('app', () => {
   return {
     config, loading, searchQuery, viewMode, filterMode, currentView,
     outdatedCache, selectedIds, runningPorts, runningTtys, devActionStates,
+    selectedTagFilter, allTags,
     loadConfig, saveConfig, selectFolders,
     addProjects, addWorkspaceFolders, removeWorkspaceFolder,
     scanAllProjects, refreshAllProjects, removeProjects,
@@ -493,7 +561,7 @@ export const useAppStore = defineStore('app', () => {
     checkPortRunning, checkAllRunningPorts,
     openInIde, openInTerminal, openInFinder,
     toggleFavorite, updateProjectName, updateProjectCommand, moveProject,
-    updateSortOrder,
+    updateSortOrder, updateProjectTags, reorderProjects,
     checkOutdated, batchPull,
     filteredProjects,
   }
