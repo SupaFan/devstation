@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import type { AppConfig, Project, OutdatedDep, ViewMode, FilterMode } from '../types'
+import type { AppConfig, Project, OutdatedDep, ViewMode, FilterMode, BranchInfo } from '../types'
 
 export const useAppStore = defineStore('app', () => {
   const config = ref<AppConfig>({
@@ -471,6 +471,26 @@ export const useAppStore = defineStore('app', () => {
     } catch (e) { console.error('批量 pull 失败:', e); throw e }
   }
 
+  async function pullProject(projectPath: string): Promise<string> {
+    const proj = config.value.projects.find(p => p.path === projectPath)
+    if (!proj) throw new Error('项目不存在')
+    const result = await invoke<string>('git_pull', { path: projectPath })
+    await fetchSingleGitInfo(proj)
+    return result
+  }
+
+  async function checkoutBranch(projectPath: string, branch: string): Promise<string> {
+    const proj = config.value.projects.find(p => p.path === projectPath)
+    if (!proj) throw new Error('项目不存在')
+    const result = await invoke<string>('git_checkout', { path: projectPath, branch })
+    await fetchSingleGitInfo(proj)
+    return result
+  }
+
+  async function getBranches(projectPath: string): Promise<BranchInfo[]> {
+    return await invoke<BranchInfo[]>('get_branches', { path: projectPath })
+  }
+
   function moveProject(projectId: string, direction: 'up' | 'down') {
     const idx = config.value.projects.findIndex(p => p.id === projectId)
     if (idx < 0) return
@@ -562,7 +582,7 @@ export const useAppStore = defineStore('app', () => {
     openInIde, openInTerminal, openInFinder,
     toggleFavorite, updateProjectName, updateProjectCommand, moveProject,
     updateSortOrder, updateProjectTags, reorderProjects,
-    checkOutdated, batchPull,
+    checkOutdated, batchPull, pullProject, checkoutBranch, getBranches,
     filteredProjects,
   }
 })

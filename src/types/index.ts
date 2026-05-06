@@ -37,5 +37,10 @@ export interface OutdatedDep {
   dep_type: string
 }
 
+export interface BranchInfo {
+  name: string
+  tracking: string | null
+}
+
 export type ViewMode = 'table' | 'card'
 export type FilterMode = 'all' | 'favorites'

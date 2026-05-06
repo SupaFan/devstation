@@ -26,6 +26,9 @@ pub fn run() {
             git::get_branch,
             git::get_last_commit_message,
             git::batch_pull,
+            git::git_pull,
+            git::git_checkout,
+            git::get_branches,
             git::check_outdated,
             // Runner commands
             runner::run_dev,

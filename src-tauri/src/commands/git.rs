@@ -111,3 +111,64 @@ pub struct BatchPullResult {
     pub success: bool,
     pub message: String,
 }
+
+#[command]
+pub fn git_pull(path: String) -> Result<String, String> {
+    let p = PathBuf::from(&path);
+    let output = std::process::Command::new("git")
+        .args(["pull"])
+        .current_dir(&p)
+        .output()
+        .map_err(|e| format!("git pull 失败: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+
+#[command]
+pub fn git_checkout(path: String, branch: String) -> Result<String, String> {
+    let p = PathBuf::from(&path);
+    let output = std::process::Command::new("git")
+        .args(["checkout", &branch])
+        .current_dir(&p)
+        .output()
+        .map_err(|e| format!("git checkout 失败: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+
+#[command]
+pub fn get_branches(path: String) -> Result<Vec<BranchInfo>, String> {
+    let p = PathBuf::from(&path);
+    let output = std::process::Command::new("git")
+        .args(["branch", "--format=%(refname:short)%00%(upstream:short)"])
+        .current_dir(&p)
+        .output()
+        .map_err(|e| format!("获取分支列表失败: {}", e))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut branches = Vec::new();
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.split('\0').collect();
+        let name = parts.first().unwrap_or(&"").trim().to_string();
+        if name.is_empty() { continue; }
+        let tracking = parts.get(1).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+        branches.push(BranchInfo { name, tracking });
+    }
+    Ok(branches)
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BranchInfo {
+    pub name: String,
+    pub tracking: Option<String>,
+}

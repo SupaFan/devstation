@@ -2,7 +2,7 @@
 import { h, ref, computed } from 'vue'
 import {
   NDataTable, NCard, NSpace, NButton, NIcon, NTag, NTooltip, NDropdown,
-  NEmpty, useMessage, NModal, NList, NListItem, NInput, NInputGroup, NForm, NFormItem
+  NEmpty, NSpin, useMessage, NModal, NList, NListItem, NInput, NInputGroup, NForm, NFormItem
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import {
@@ -11,7 +11,7 @@ import {
   ReorderTwoOutline
 } from '@vicons/ionicons5'
 import { useAppStore } from '../stores/app'
-import type { Project, ViewMode, OutdatedDep } from '../types'
+import type { Project, ViewMode, OutdatedDep, BranchInfo } from '../types'
 
 defineProps<{
   projects: Project[]
@@ -34,6 +34,10 @@ const tagProject = ref<Project | null>(null)
 const newTagInput = ref('')
 const dragSourceId = ref<string | null>(null)
 const dragOverId = ref<string | null>(null)
+const showBranchModal = ref(false)
+const branchProject = ref<Project | null>(null)
+const branchList = ref<BranchInfo[]>([])
+const branchLoading = ref(false)
 
 const availableSuggestions = computed(() => {
   if (!tagProject.value) return []
@@ -126,10 +130,35 @@ async function handleCheckOutdated(project: Project) {
 
 async function handlePull(project: Project) {
   try {
-    await store.batchPull([project.path])
+    await store.pullProject(project.path)
     message.success(`${project.name} pull 成功`)
+  } catch (e: any) {
+    message.error(`${project.name} pull 失败: ${e}`)
+  }
+}
+
+async function openBranchModal(project: Project) {
+  branchProject.value = project
+  branchLoading.value = true
+  showBranchModal.value = true
+  try {
+    branchList.value = await store.getBranches(project.path)
   } catch {
-    message.error(`${project.name} pull 失败`)
+    branchList.value = []
+    message.error('获取分支列表失败')
+  } finally {
+    branchLoading.value = false
+  }
+}
+
+async function handleCheckout(branch: string) {
+  if (!branchProject.value) return
+  try {
+    await store.checkoutBranch(branchProject.value.path, branch)
+    message.success(`已切换到 ${branch}`)
+    showBranchModal.value = false
+  } catch (e: any) {
+    message.error(`切换失败: ${e}`)
   }
 }
 
@@ -206,6 +235,7 @@ function getMoreActions(project: Project) {
     { label: '打开终端', key: 'terminal' },
     { label: '在 Finder 中显示', key: 'finder' },
     { label: 'Git Pull', key: 'pull' },
+    { label: '切换分支', key: 'branch' },
     { label: '检查过期依赖', key: 'outdated' },
     { label: '配置命令', key: 'command' },
     { label: '管理标签', key: 'tags' },
@@ -222,6 +252,7 @@ function handleMoreAction(key: string, project: Project) {
   if (key === 'terminal') handleOpenTerminal(project)
   else if (key === 'finder') handleOpenFinder(project)
   else if (key === 'pull') handlePull(project)
+  else if (key === 'branch') openBranchModal(project)
   else if (key === 'outdated') handleCheckOutdated(project)
   else if (key === 'command') openCommandModal(project)
   else if (key === 'tags') openTagModal(project)
@@ -622,6 +653,37 @@ const columns: DataTableColumns<Project> = [
           <NButton @click="showTagModal = false">关闭</NButton>
         </div>
       </template>
+    </NModal>
+
+    <!-- Branch switch modal -->
+    <NModal v-model:show="showBranchModal" preset="card" title="切换分支" style="max-width: 460px;">
+      <template #header>
+        <span>{{ branchProject?.name }} - 切换分支</span>
+      </template>
+      <NSpin :show="branchLoading">
+        <NList v-if="branchList.length > 0" bordered size="small">
+          <NListItem v-for="b in branchList" :key="b.name" style="padding: 6px 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <NIcon v-if="b.name === branchProject?.branch" :size="14" color="#18a058">
+                  <Star />
+                </NIcon>
+                <span :style="{ fontWeight: b.name === branchProject?.branch ? '600' : 'normal' }">{{ b.name }}</span>
+                <NTag v-if="b.tracking" size="tiny" :bordered="false">{{ b.tracking }}</NTag>
+              </div>
+              <NButton
+                v-if="b.name !== branchProject?.branch"
+                size="tiny"
+                @click="handleCheckout(b.name)"
+              >
+                切换
+              </NButton>
+              <NTag v-else size="tiny" type="success" :bordered="false">当前</NTag>
+            </div>
+          </NListItem>
+        </NList>
+        <NEmpty v-else-if="!branchLoading" description="没有找到分支" />
+      </NSpin>
     </NModal>
   </div>
 </template>

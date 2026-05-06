@@ -5,7 +5,7 @@ import {
 } from 'naive-ui'
 import {
   SettingsOutline, RefreshOutline, AddOutline, SearchOutline,
-  GridOutline, ListOutline, CloudDownloadOutline, FolderOpenOutline,
+  GridOutline, ListOutline, FolderOpenOutline,
   TrashOutline
 } from '@vicons/ionicons5'
 import { useAppStore } from '../stores/app'
@@ -58,25 +58,6 @@ async function handleRefresh() {
   message.success('刷新完成')
 }
 
-async function handleBatchPull() {
-  const projects = store.config.projects
-  if (projects.length === 0) {
-    message.info('没有可拉取的项目')
-    return
-  }
-  try {
-    const results = await store.batchPull(projects.map(p => p.path))
-    const failed = results.filter(r => !r.success)
-    if (failed.length === 0) {
-      message.success(`成功拉取 ${results.length} 个项目`)
-    } else {
-      message.warning(`${results.length - failed.length} 个成功, ${failed.length} 个失败`)
-    }
-  } catch {
-    message.error('批量拉取失败')
-  }
-}
-
 async function handleBatchDelete() {
   await store.removeProjects(store.selectedIds)
   message.success('已删除')
@@ -105,14 +86,6 @@ async function handleBatchDelete() {
             </NButton>
           </template>
           扫描文件夹
-        </NTooltip>
-        <NTooltip>
-          <template #trigger>
-            <NButton quaternary circle @click="handleBatchPull">
-              <template #icon><NIcon :component="CloudDownloadOutline" /></template>
-            </NButton>
-          </template>
-          批量 Git Pull
         </NTooltip>
         <NTooltip>
           <template #trigger>
