@@ -43,4 +43,3 @@ export interface BranchInfo {
 }
 
 export type ViewMode = 'table' | 'card'
-export type FilterMode = 'all' | 'favorites'

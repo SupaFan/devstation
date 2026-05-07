@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import type { AppConfig, Project, OutdatedDep, ViewMode, FilterMode, BranchInfo } from '../types'
+import type { AppConfig, Project, OutdatedDep, BranchInfo } from '../types'
 
 export const useAppStore = defineStore('app', () => {
   const config = ref<AppConfig>({
@@ -16,8 +16,6 @@ export const useAppStore = defineStore('app', () => {
   })
   const loading = ref(false)
   const searchQuery = ref('')
-  const viewMode = ref<ViewMode>('table')
-  const filterMode = ref<FilterMode>('all')
   const currentView = ref<'main' | 'settings'>('main')
   const outdatedCache = ref<Record<string, OutdatedDep[]>>({})
   const selectedIds = ref<string[]>([])
@@ -498,6 +496,7 @@ export const useAppStore = defineStore('app', () => {
     if (targetIdx < 0 || targetIdx >= config.value.projects.length) return
     const list = config.value.projects
     ;[list[idx], list[targetIdx]] = [list[targetIdx], list[idx]]
+    list.forEach((p, i) => { p.sort_order = i + 1 })
     saveConfig()
   }
 
@@ -542,10 +541,6 @@ export const useAppStore = defineStore('app', () => {
   const filteredProjects = computed(() => {
     let list = [...config.value.projects]
 
-    if (filterMode.value === 'favorites') {
-      list = list.filter(p => p.is_favorite)
-    }
-
     if (selectedTagFilter.value) {
       list = list.filter(p => (p.tags || []).includes(selectedTagFilter.value!))
     }
@@ -561,7 +556,6 @@ export const useAppStore = defineStore('app', () => {
       )
     }
 
-    // Sort by sort_order (0 = unset, goes last), then by name
     list.sort((a, b) => {
       if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
       return a.name.localeCompare(b.name, 'zh-CN')
@@ -571,7 +565,7 @@ export const useAppStore = defineStore('app', () => {
   })
 
   return {
-    config, loading, searchQuery, viewMode, filterMode, currentView,
+    config, loading, searchQuery, currentView,
     outdatedCache, selectedIds, runningPorts, runningTtys, devActionStates,
     selectedTagFilter, allTags,
     loadConfig, saveConfig, selectFolders,

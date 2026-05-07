@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import {
-  NLayout, NLayoutHeader, NLayoutContent, NButton, NSpace, NInput, NSelect,
+  NLayout, NLayoutHeader, NLayoutContent, NButton, NSpace, NInput,
   NIcon, NTooltip, NSpin, NEmpty, NTag, NPopconfirm, useMessage
 } from 'naive-ui'
 import {
   SettingsOutline, RefreshOutline, AddOutline, SearchOutline,
-  GridOutline, ListOutline, FolderOpenOutline,
-  TrashOutline
+  FolderOpenOutline, TrashOutline
 } from '@vicons/ionicons5'
 import { useAppStore } from '../stores/app'
 import ProjectTable from '../components/ProjectTable.vue'
@@ -30,11 +29,6 @@ function getTagColor(tag: string) {
 function toggleTagFilter(tag: string) {
   store.selectedTagFilter = store.selectedTagFilter === tag ? null : tag
 }
-
-const filterOptions = [
-  { label: '全部项目', value: 'all' },
-  { label: '已收藏', value: 'favorites' },
-]
 
 const emit = defineEmits<{
   (e: 'toggle-theme'): void
@@ -125,13 +119,6 @@ async function handleBatchDelete() {
         <template #prefix><NIcon :component="SearchOutline" /></template>
       </NInput>
 
-      <NSelect
-        v-model:value="store.filterMode"
-        :options="filterOptions"
-        style="width: 120px;"
-        size="small"
-      />
-
       <NTag
         v-for="tag in store.allTags"
         :key="tag"
@@ -161,24 +148,6 @@ async function handleBatchDelete() {
         </NPopconfirm>
       </template>
 
-      <NSpace :size="4">
-        <NButton
-          :type="store.viewMode === 'table' ? 'primary' : 'default'"
-          size="small" quaternary
-          @click="store.viewMode = 'table'"
-        >
-          <template #icon><NIcon :component="ListOutline" /></template>
-          表格
-        </NButton>
-        <NButton
-          :type="store.viewMode === 'card' ? 'primary' : 'default'"
-          size="small" quaternary
-          @click="store.viewMode = 'card'"
-        >
-          <template #icon><NIcon :component="GridOutline" /></template>
-          卡片
-        </NButton>
-      </NSpace>
     </div>
 
     <!-- Content -->
@@ -187,7 +156,6 @@ async function handleBatchDelete() {
         <ProjectTable
           v-if="store.config.projects.length > 0"
           :projects="store.filteredProjects"
-          :view-mode="store.viewMode"
         />
         <NEmpty v-else description="点击右上角「添加项目」选择项目目录" style="margin-top: 100px;" />
       </NSpin>

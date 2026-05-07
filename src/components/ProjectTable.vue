@@ -1,21 +1,19 @@
 <script setup lang="ts">
 import { h, ref, computed } from 'vue'
 import {
-  NDataTable, NCard, NSpace, NButton, NIcon, NTag, NTooltip, NDropdown,
+  NDataTable, NSpace, NButton, NIcon, NTag, NTooltip, NDropdown,
   NEmpty, NSpin, useMessage, NModal, NList, NListItem, NInput, NInputGroup, NForm, NFormItem
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import {
   PlayOutline, BuildOutline, OpenOutline,
   StarOutline, Star, EllipsisVerticalOutline, StopOutline, CopyOutline,
-  ReorderTwoOutline
 } from '@vicons/ionicons5'
 import { useAppStore } from '../stores/app'
-import type { Project, ViewMode, OutdatedDep, BranchInfo } from '../types'
+import type { Project, OutdatedDep, BranchInfo } from '../types'
 
-defineProps<{
+const props = defineProps<{
   projects: Project[]
-  viewMode: ViewMode
 }>()
 
 const store = useAppStore()
@@ -32,8 +30,6 @@ const editBuildCommand = ref('')
 const showTagModal = ref(false)
 const tagProject = ref<Project | null>(null)
 const newTagInput = ref('')
-const dragSourceId = ref<string | null>(null)
-const dragOverId = ref<string | null>(null)
 const showBranchModal = ref(false)
 const branchProject = ref<Project | null>(null)
 const branchList = ref<BranchInfo[]>([])
@@ -231,7 +227,13 @@ async function handleCopyInfo(project: Project) {
 }
 
 function getMoreActions(project: Project) {
+  const idx = props.projects.findIndex(p => p.id === project.id)
+  const isFirst = idx <= 0
+  const isLast = idx < 0 || idx >= props.projects.length - 1
   return [
+    ...(isFirst ? [] : [{ label: '上移', key: 'moveUp' }]),
+    ...(isLast ? [] : [{ label: '下移', key: 'moveDown' }]),
+    ...((isFirst && isLast) ? [] : [{ type: 'divider' as const, key: 'd3' }]),
     { label: '打开终端', key: 'terminal' },
     { label: '在 Finder 中显示', key: 'finder' },
     { label: 'Git Pull', key: 'pull' },
@@ -241,15 +243,13 @@ function getMoreActions(project: Project) {
     { label: '管理标签', key: 'tags' },
     { type: 'divider', key: 'd2' },
     { label: '从列表移除', key: 'remove', props: { style: 'color: #d03050;' } },
-    { type: 'divider', key: 'd1' },
-    ...Object.keys(project.scripts)
-      .filter(s => !['dev', 'build', 'start'].includes(s))
-      .map(s => ({ label: `运行: ${s}`, key: `script:${s}` })),
   ]
 }
 
 function handleMoreAction(key: string, project: Project) {
-  if (key === 'terminal') handleOpenTerminal(project)
+  if (key === 'moveUp') store.moveProject(project.id, 'up')
+  else if (key === 'moveDown') store.moveProject(project.id, 'down')
+  else if (key === 'terminal') handleOpenTerminal(project)
   else if (key === 'finder') handleOpenFinder(project)
   else if (key === 'pull') handlePull(project)
   else if (key === 'branch') openBranchModal(project)
@@ -270,32 +270,9 @@ function getLastCommitMessage(project: Project) {
 
 function getRowProps(row: Project): Record<string, any> {
   return {
-    draggable: true,
-    onDragstart: () => {
-      dragSourceId.value = row.id
-    },
-    onDragover: (e: DragEvent) => {
-      e.preventDefault()
-      dragOverId.value = row.id
-    },
-    onDragleave: () => {
-      if (dragOverId.value === row.id) dragOverId.value = null
-    },
-    onDrop: () => {
-      if (dragSourceId.value && dragSourceId.value !== row.id) {
-        store.reorderProjects(dragSourceId.value, row.id)
-      }
-      dragSourceId.value = null
-      dragOverId.value = null
-    },
-    onDragend: () => {
-      dragSourceId.value = null
-      dragOverId.value = null
-    },
     style: row.is_favorite
       ? 'background-color: rgba(76, 175, 80, 0.08) !important'
       : undefined,
-    class: dragOverId.value === row.id ? 'drag-over-row' : '',
   }
 }
 
@@ -313,14 +290,6 @@ const columns: DataTableColumns<Project> = [
         { quaternary: true, circle: true, size: 'tiny', onClick: () => store.toggleFavorite(row.id) },
         { icon: () => h(NIcon, { size: 16, color: row.is_favorite ? '#f0a020' : '#ccc' }, () => h(row.is_favorite ? Star : StarOutline)) }
       )
-    },
-  },
-  {
-    title: '排序',
-    key: 'drag',
-    width: 46,
-    render() {
-      return h(NIcon, { size: 16, color: '#bbb', style: 'cursor: grab;' }, () => h(ReorderTwoOutline))
     },
   },
   {
@@ -454,9 +423,7 @@ const columns: DataTableColumns<Project> = [
 
 <template>
   <div>
-    <!-- Table View -->
     <NDataTable
-      v-if="viewMode === 'table'"
       :columns="columns"
       :data="projects"
       :bordered="false"
@@ -468,90 +435,6 @@ const columns: DataTableColumns<Project> = [
       striped
       size="small"
     />
-
-    <!-- Card View -->
-    <div v-else class="card-grid">
-      <NCard
-        v-for="project in projects"
-        :key="project.id"
-        size="small"
-        hoverable
-        class="project-card"
-        :class="{ 'favorite-card': project.is_favorite }"
-        draggable="true"
-        @dragstart="dragSourceId = project.id"
-        @dragover.prevent="dragOverId = project.id"
-        @dragleave="dragOverId === project.id && (dragOverId = null)"
-        @drop="dragSourceId && dragSourceId !== project.id && store.reorderProjects(dragSourceId, project.id); dragSourceId = null; dragOverId = null"
-        @dragend="dragSourceId = null; dragOverId = null"
-      >
-        <div class="card-header">
-          <div class="card-title">
-            <NButton quaternary circle size="tiny" @click="store.toggleFavorite(project.id)">
-              <template #icon>
-                <NIcon :size="14" :color="project.is_favorite ? '#f0a020' : '#ccc'">
-                  <component :is="project.is_favorite ? Star : StarOutline" />
-                </NIcon>
-              </template>
-            </NButton>
-            <span class="card-name">{{ project.name }}</span>
-            <NIcon :size="14" color="#bbb" style="cursor: grab;"><ReorderTwoOutline /></NIcon>
-          </div>
-          <span class="card-version">v{{ project.version }}</span>
-        </div>
-        <div class="card-commit-row">
-          <NTooltip>
-            <template #trigger>
-              <span class="card-commit">{{ getLastCommitMessage(project) }}</span>
-            </template>
-            {{ getLastCommitMessage(project) }}
-          </NTooltip>
-        </div>
-        <div class="card-info">
-          <span class="card-dir">{{ project.dir_name }}</span>
-          <NTag v-if="project.branch" size="tiny">{{ project.branch }}</NTag>
-          <NTag v-if="project.port" size="tiny" type="info" :bordered="false">:{{ project.port }}</NTag>
-        </div>
-        <div v-if="project.tags && project.tags.length > 0" class="card-tags">
-          <NTag v-for="tag in project.tags" :key="tag" size="tiny" round :color="getTagColor(tag)">{{ tag }}</NTag>
-        </div>
-        <div class="card-actions">
-          <NButton
-            size="tiny"
-            :type="isDevRunning(project) ? 'error' : 'success'"
-            :loading="getDevActionState(project) != null"
-            :disabled="getDevActionState(project) != null"
-            @click="handleRunDev(project)"
-          >
-            <template #icon>
-              <NIcon :component="isDevRunning(project) ? StopOutline : PlayOutline" />
-            </template>
-            {{ getDevActionState(project) === 'starting' ? '启动中' : getDevActionState(project) === 'stopping' ? '停止中' : isDevRunning(project) ? '停止' : '运行' }}
-          </NButton>
-          <NButton size="tiny" type="warning" @click="handleBuild(project)">
-            <template #icon><NIcon :component="BuildOutline" /></template>
-            打包
-          </NButton>
-          <NButton size="tiny" type="info" @click="handleOpenIde(project)">
-            <template #icon><NIcon :component="OpenOutline" /></template>
-            打开
-          </NButton>
-          <NTooltip>
-            <template #trigger>
-              <NButton size="tiny" quaternary @click="handleCopyInfo(project)">
-                <template #icon><NIcon :component="CopyOutline" /></template>
-              </NButton>
-            </template>
-            复制信息
-          </NTooltip>
-          <NDropdown :options="getMoreActions(project)" @select="(key: string) => handleMoreAction(key, project)">
-            <NButton size="tiny" quaternary>
-              <template #icon><NIcon :component="EllipsisVerticalOutline" /></template>
-            </NButton>
-          </NDropdown>
-        </div>
-      </NCard>
-    </div>
 
     <NEmpty v-if="projects.length === 0 && store.config.workspace_folders.length > 0" description="没有匹配的项目" style="margin-top: 60px;" />
 
@@ -688,98 +571,8 @@ const columns: DataTableColumns<Project> = [
   </div>
 </template>
 
-<style scoped>
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 12px;
-}
-
-.project-card {
-  transition: transform 0.2s;
-}
-
-.project-card:hover {
-  transform: translateY(-2px);
-}
-
-.favorite-card {
-  background-color: rgba(76, 175, 80, 0.08) !important;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.card-name {
-  font-weight: 600;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.card-commit-row {
-  margin-bottom: 6px;
-}
-
-.card-commit {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #666;
-  font-size: 12px;
-}
-
-.card-version {
-  font-family: monospace;
-  font-size: 12px;
-  color: #999;
-  flex-shrink: 0;
-}
-
-.card-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: #666;
-}
-
-.card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.card-dir {
-  font-family: monospace;
-}
-
-.card-actions {
-  display: flex;
-  gap: 6px;
-}
-</style>
-
 <style>
-/* Global style for table favorite rows - must be unscoped */
 .n-data-table-tr[style*="background-color"] td {
   background-color: inherit !important;
-}
-.drag-over-row td {
-  border-top: 2px solid #18a058 !important;
 }
 </style>
