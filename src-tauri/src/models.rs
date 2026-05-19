@@ -34,6 +34,15 @@ pub struct Project {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelProfile {
+    pub id: String,
+    pub name: String,
+    pub alias: String,
+    pub token: String,
+    pub base_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub workspace_folders: Vec<String>,
     pub projects: Vec<Project>,
@@ -43,6 +52,10 @@ pub struct AppConfig {
     pub package_manager: String,
     pub dev_script: String,
     pub build_script: String,
+    #[serde(default)]
+    pub model_profiles: Vec<ModelProfile>,
+    #[serde(default)]
+    pub active_model_profile_id: String,
 }
 
 impl Default for AppConfig {
@@ -56,6 +69,8 @@ impl Default for AppConfig {
             package_manager: "pnpm".to_string(),
             dev_script: "dev".to_string(),
             build_script: "node git-tag-creator.mjs".to_string(),
+            model_profiles: Vec::new(),
+            active_model_profile_id: String::new(),
         }
     }
 }

@@ -5,7 +5,7 @@ import {
 } from 'naive-ui'
 import {
   SettingsOutline, RefreshOutline, AddOutline, SearchOutline,
-  FolderOpenOutline, TrashOutline
+  FolderOpenOutline, TrashOutline, PulseOutline
 } from '@vicons/ionicons5'
 import { useAppStore } from '../stores/app'
 import ProjectTable from '../components/ProjectTable.vue'
@@ -96,6 +96,14 @@ async function handleBatchDelete() {
             </NButton>
           </template>
           切换主题
+        </NTooltip>
+        <NTooltip>
+          <template #trigger>
+            <NButton quaternary circle @click="store.currentView = 'models'">
+              <template #icon><NIcon :component="PulseOutline" /></template>
+            </NButton>
+          </template>
+          模型配置
         </NTooltip>
         <NTooltip>
           <template #trigger>

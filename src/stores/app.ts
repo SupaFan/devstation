@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import type { AppConfig, Project, OutdatedDep, BranchInfo } from '../types'
+import type { AppConfig, Project, OutdatedDep, BranchInfo, ModelProfile } from '../types'
 
 export const useAppStore = defineStore('app', () => {
   const config = ref<AppConfig>({
@@ -13,10 +13,12 @@ export const useAppStore = defineStore('app', () => {
     package_manager: 'pnpm',
     dev_script: 'dev',
     build_script: 'build',
+    model_profiles: [],
+    active_model_profile_id: '',
   })
   const loading = ref(false)
   const searchQuery = ref('')
-  const currentView = ref<'main' | 'settings'>('main')
+  const currentView = ref<'main' | 'settings' | 'models'>('main')
   const outdatedCache = ref<Record<string, OutdatedDep[]>>({})
   const selectedIds = ref<string[]>([])
   const runningPorts = ref<Set<number>>(new Set())
@@ -564,6 +566,17 @@ export const useAppStore = defineStore('app', () => {
     return list
   })
 
+  async function activateModelProfile(profile: ModelProfile) {
+    try {
+      await invoke('activate_model_profile', { profile })
+      config.value.active_model_profile_id = profile.id
+      await saveConfig()
+    } catch (e) {
+      console.error('激活模型配置失败:', e)
+      throw e
+    }
+  }
+
   return {
     config, loading, searchQuery, currentView,
     outdatedCache, selectedIds, runningPorts, runningTtys, devActionStates,
@@ -577,6 +590,7 @@ export const useAppStore = defineStore('app', () => {
     toggleFavorite, updateProjectName, updateProjectCommand, moveProject,
     updateSortOrder, updateProjectTags, reorderProjects,
     checkOutdated, batchPull, pullProject, checkoutBranch, getBranches,
+    activateModelProfile,
     filteredProjects,
   }
 })

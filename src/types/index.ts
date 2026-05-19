@@ -19,6 +19,14 @@ export interface Project {
   tags: string[]
 }
 
+export interface ModelProfile {
+  id: string
+  name: string
+  alias: string
+  token: string
+  base_url: string
+}
+
 export interface AppConfig {
   workspace_folders: string[]
   projects: Project[]
@@ -28,6 +36,8 @@ export interface AppConfig {
   package_manager: string
   dev_script: string
   build_script: string
+  model_profiles: ModelProfile[]
+  active_model_profile_id: string
 }
 
 export interface OutdatedDep {

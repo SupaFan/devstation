@@ -1,7 +1,7 @@
 mod commands;
 mod models;
 
-use commands::{git, project, runner, system};
+use commands::{git, project, runner, system, claude};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -41,6 +41,9 @@ pub fn run() {
             system::open_in_terminal,
             system::open_in_finder,
             system::detect_port_in_use,
+            // Claude commands
+            claude::read_claude_env,
+            claude::activate_model_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

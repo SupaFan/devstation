@@ -4,6 +4,7 @@ import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme, zhCN } f
 import { useAppStore } from './stores/app'
 import MainView from './views/MainView.vue'
 import SettingsView from './views/SettingsView.vue'
+import ModelsView from './views/ModelsView.vue'
 
 const store = useAppStore()
 const isDark = ref(false)
@@ -27,6 +28,7 @@ function toggleTheme() {
       <NMessageProvider>
         <div class="app-container">
           <MainView v-if="store.currentView === 'main'" :is-dark="isDark" @toggle-theme="toggleTheme" />
+          <ModelsView v-else-if="store.currentView === 'models'" @back="store.currentView = 'main'" :is-dark="isDark" @toggle-theme="toggleTheme" />
           <SettingsView v-else @back="store.currentView = 'main'" :is-dark="isDark" @toggle-theme="toggleTheme" />
         </div>
       </NMessageProvider>
